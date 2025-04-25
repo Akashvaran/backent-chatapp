@@ -35,14 +35,18 @@ const groupSchema = new mongoose.Schema(
         type: Date,
         default: Date.now
       }
-    }]
+    }],
+    lastMessage: {
+      type: String,
+      required: true
+    },
   },
   {
     timestamps: true
   }
 );
 
-groupSchema.pre("save", function(next) {
+groupSchema.pre("save", function (next) {
   if (this.isNew) {
     // this.admins = [this.createdBy];
     this.members.push({

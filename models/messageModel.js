@@ -1,12 +1,14 @@
 const mongoose = require("mongoose");
 
 const fileSchema = new mongoose.Schema({
-  text: { type: String }, 
-  fileUrl: String,
+  text: String,            
+  fileUrl: String,       
   fileName: String,
   fileSize: Number,
   mimeType: String,
-  duration: Number,
+  duration: Number, 
+  latitude: Number,   
+  longitude: Number
 }, { _id: false });
 
 const messageSchema = new mongoose.Schema(
@@ -26,22 +28,19 @@ const messageSchema = new mongoose.Schema(
       enum: ['text', 'image', 'audio', 'video', 'document', 'location'],
       required: true
     },
-    content: {     
-      file: fileSchema,    
-    },
-    read: {
-      type: Boolean,
-      default: false,
-    },
-    isEdited: {
+    content: fileSchema,
+    
+    read: { 
       type: Boolean,
       default: false
+    },
+    isEdited: { 
+      type: Boolean,
+      default: false 
     }
   },
   { timestamps: true }
 );
 
 const Message = mongoose.model("ChatMessage", messageSchema);
-
 module.exports = Message;
-

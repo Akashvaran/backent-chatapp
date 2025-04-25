@@ -1,6 +1,7 @@
 const AuthModel = require("../models/authModel");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
 
 const generateToken = (id, email) => {
     return jwt.sign({ id, email }, process.env.JWT_SECRET, { expiresIn: "1h" });
@@ -8,7 +9,7 @@ const generateToken = (id, email) => {
 
 const signup = async (req, res, next) => {
     console.log(req.body);
-    
+
     const { name, email, mobile, password } = req.body;
 
     try {
@@ -24,7 +25,8 @@ const signup = async (req, res, next) => {
 
         const token = generateToken(newUser._id, newUser.email);
         res.cookie("jwt", token, { maxAge: 3600000, httpOnly: true });
-
+      
+      
         res.status(201).json({
             message: "User signed up successfully",
             user: { id: newUser._id, name: newUser.name },
@@ -37,7 +39,7 @@ const signup = async (req, res, next) => {
 
 const login = async (req, res, next) => {
     console.log(req.body);
-    
+
     const { email, password } = req.body;
 
     try {
@@ -53,7 +55,7 @@ const login = async (req, res, next) => {
 
         const token = generateToken(user._id, user.email);
         res.cookie("jwt", token, { maxAge: 3600000, httpOnly: true });
-
+        console.log(token);
         res.status(200).json({
             message: "Login successful",
             user: { id: user._id, name: user.name },
@@ -68,19 +70,79 @@ const login = async (req, res, next) => {
 
 
 const getAllUsers = async (req, res, next) => {
-    try {
-        const users = await AuthModel.find();
-        res.status(200).json({
-            message: "successfully get the user",
-            users,
-        });
-    } catch (err) {
-        next(err);
-    }
+  try {
+  console.log(req.user.id);
+  
+    const userId = req.user.id;
+
+    const allUsersWithUnread = await AuthModel.aggregate([
+      {
+        $match: { _id: { $ne: new mongoose.Types.ObjectId(userId) } }
+      },
+      {
+        $lookup: {
+          from: "ChatMessage", 
+          let: { senderId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$sender", "$$senderId"] },
+                    { $eq: ["$receiver", new mongoose.Types.ObjectId(userId)] },
+                    { $eq: ["$read", false] }
+                  ]
+                }
+              }
+            },
+            { $sort: { createdAt: -1 } },
+            {
+              $group: {
+                _id: null,
+                unreadCount: { $sum: 1 },
+                lastMessage: { $first: "$$ROOT" }
+              }
+            }
+          ],
+          as: "unreadInfo"
+        }
+      },
+      {
+        $addFields: {
+          unreadInfo: { $arrayElemAt: ["$unreadInfo", 0] }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          email: 1,
+          unreadCount: { $ifNull: ["$unreadInfo.unreadCount", 0] },
+          lastMessage: {
+            $cond: {
+              if: { $gt: ["$unreadInfo", null] },
+              then: {
+                type: "$unreadInfo.lastMessage.type",
+                content: "$unreadInfo.lastMessage.content",
+                createdAt: "$unreadInfo.lastMessage.createdAt"
+              },
+              else: null
+            }
+          }
+        }
+      }
+    ]);
+
+    res.status(200).json(allUsersWithUnread);
+  } catch (error) {
+    console.error("Error fetching users with unread messages:", error);
+    next(error);
+  }
 };
 
 
- const Verify = async (req, res) => {
+
+const Verify = async (req, res) => {
     // console.log(req.body)
     try {
         const token = req.cookies.jwt;
@@ -96,9 +158,9 @@ const getAllUsers = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
     try {
-        
-        
-        res.cookie("jwt", "", { maxAge: 1, httpOnly: true }); 
+
+
+        res.cookie("jwt", "", { maxAge: 1, httpOnly: true });
 
         res.status(200).json({ message: "Logout successful" });
     } catch (err) {
@@ -106,10 +168,10 @@ const logout = async (req, res, next) => {
     }
 };
 
-    module.exports = {
-        signup,
-        login,
-        getAllUsers,
-        Verify,
-        logout
-    };
+module.exports = {
+    signup,
+    login,
+    getAllUsers,
+    Verify,
+    logout
+};

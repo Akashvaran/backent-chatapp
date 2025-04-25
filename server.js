@@ -101,59 +101,48 @@ socketServer.on("connection", (socket) => {
     }
   });
   
-  socket.on("sendMessage", async ({ sender, receiver, message, timestamp, audioData }) => {
-    console.log(audioData);
-    
+  socket.on("sendMessage", async ({ sender, receiver, type, content, timestamp }) => {
     try {
-      let newMessage;
-      
-      if (audioData) {
-        newMessage = new Message({
-          sender,
-          receiver,
-          audio: {
-            data: audioData.audio,
-            duration: audioData.duration,
-            mimeType: audioData.mimeType,
-            fileName: audioData.fileName 
-          },
-          read: false,
-          createdAt: timestamp
-        });
-      } else {
-        newMessage = new Message({
-          sender,
-          receiver,
-          message,
-          read: false,
-          createdAt: timestamp
-        });
-      }
+      const newMessage = new Message({
+        sender,
+        receiver,
+        type,
+        content,
+        read: false,
+        createdAt: timestamp || new Date()
+      });
       
       await newMessage.save();
   
       const messageData = {
         _id: newMessage._id,
-        senderId: sender,
-        receiverId: receiver,
-        text: newMessage.message || '[Audio message]',
-        audio: newMessage.audio,
-        status: "delivered",
+        sender: newMessage.sender,
+        receiver: newMessage.receiver,
+        type: newMessage.type,
+        content: newMessage.content,
+        read: newMessage.read,
+        isEdited: newMessage.isEdited,
         createdAt: newMessage.createdAt,
-        isEdited: false
+        updatedAt: newMessage.updatedAt
       };
   
-      socket.emit("receiveMessage", messageData);
+      socket.emit("messageSent", {
+        status: "success",
+        message: messageData
+      });
       
       if (users[receiver]) {
-        socket.to(users[receiver]).emit("receiveMessage", messageData);
+        socket.to(users[receiver]).emit("newMessage", messageData);
       }
     } catch (error) {
-      console.error("[socket/sendMessage] Error:", error);
-      socket.emit("error", { message: "Failed to send message" });
+      console.error("Error sending message:", error);
+      socket.emit("error", { 
+        status: "error",
+        message: "Failed to send message",
+        error: error.message 
+      });
     }
   });
-
   socket.on("typing", ({ sender, receiver }) => {
     if (users[receiver]) {
       socket.to(users[receiver]).emit("typing-server", sender);
@@ -187,46 +176,72 @@ socketServer.on("connection", (socket) => {
     console.log(`User ${userId} left group ${groupId}`);
   });
 
-  socket.on("sendGroupMessage", async ({ groupId, senderId, content, audio }) => {
+  socket.on("sendGroupMessage", async ({ groupId, senderId, type, content }) => {
     try {
       const group = await Group.findById(groupId);
       if (!group) {
         return socket.emit("error", { message: "Group not found" });
       }
 
-      const isMember = group.members.some(member => 
+      const isMember = group.members.some(member =>
         member.user.toString() === senderId.toString()
       );
-      
+
       if (!isMember) {
-        return socket.emit("error", { message: "Not a group member" });
+        return socket.emit("error", { message: "You are not a group member." });
       }
 
       const newMessage = new GroupMessage({
         sender: senderId,
         group: groupId,
-        message: content,
-        audio: audio,
+        type,
+        content,
         readBy: [senderId]
       });
 
       await newMessage.save();
 
-      const populatedMessage = await GroupMessage.populate(newMessage, [
-        { path: "sender", select: "name" },
-        { path: "group", select: "name" }
-      ]);
+      let lastMsgPreview = "";
+      switch (type) {
+        case "text":
+          lastMsgPreview = content?.text || "Text Message";
+          break;
+        case "image":
+          lastMsgPreview = "Image";
+          break;
+        case "audio":
+          lastMsgPreview = "Audio";
+          break;
+        case "video":
+          lastMsgPreview = "Video";
+          break;
+        case "document":
+          lastMsgPreview = "Document";
+          break;
+        case "location":
+          lastMsgPreview = "Location";
+          break;
+        default:
+          lastMsgPreview = "New message";
+      }
+
+      group.lastMessage = lastMsgPreview;
+      await group.save();
+
+      const populatedMessage = await GroupMessage.findById(newMessage._id)
+        .populate("sender", "name")
+        .populate("group", "name");
 
       const messageObj = populatedMessage.toObject();
       messageObj.status = "delivered";
 
       socketServer.to(groupId).emit("newGroupMessage", messageObj);
-
     } catch (error) {
       console.error("Error sending group message:", error);
       socket.emit("error", { message: "Failed to send group message" });
     }
   });
+
 
   socket.on("updateGroupMessage", async ({ messageId, groupId, senderId, content }) => {
     try {

@@ -1,9 +1,10 @@
 const mongoose = require('mongoose')
 
 
-function database(){
+function database() {
     mongoose.connect(process.env.DATABASE_URL)
-    .then(res=>console.log("database is connect"))
-    .catch(res=>console.log('database is not connect'))
+        .then(res => console.log("database is connect"))
+        .catch(res => console.log('database is not connect', res.message))
 }
-module.exports=database
+
+module.exports = database

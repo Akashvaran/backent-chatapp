@@ -16,14 +16,6 @@ const getMessages = async (req, res,) => {
   }
 };
 
-const getUnreadMessages = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const unreadMessages = await Message.find({ receiver: userId, read: false });
-    res.json(unreadMessages);
-  } catch (error) {
-    res.status(500).json({ message: "Server Error", error });
-  }
-};
 
-module.exports = { getMessages, getUnreadMessages };
+
+module.exports = { getMessages};

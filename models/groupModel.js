@@ -1,5 +1,31 @@
 const mongoose = require("mongoose");
-
+const lastMessageSchema = new mongoose.Schema(
+  {
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ChatUser",
+    },
+    type: {
+      type: String,
+      enum: ["text", "image", "audio", "video", "document", "location"],
+    },
+    content: {
+      text: String,            
+      fileUrl: String,       
+      fileName: String,
+      fileSize: Number,
+      mimeType: String,
+      duration: Number, 
+      latitude: Number,   
+      longitude: Number
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    }
+  },
+  { _id: false } 
+);
 const groupSchema = new mongoose.Schema(
   {
     name: {
@@ -36,10 +62,7 @@ const groupSchema = new mongoose.Schema(
         default: Date.now
       }
     }],
-    lastMessage: {
-      type: String,
-      required: true
-    },
+    lastMessage: lastMessageSchema,
   },
   {
     timestamps: true

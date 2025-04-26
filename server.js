@@ -102,14 +102,36 @@ socketServer.on("connection", (socket) => {
   });
   
   socket.on("sendMessage", async ({ sender, receiver, type, content, timestamp }) => {
+    console.log("socket server is calling");
+    
     try {
+      let messageContent;
+      
+      if (type === 'text') {
+        messageContent = { text: content };
+      } 
+      else if (type === 'audio') {
+        messageContent = {
+          fileUrl: content.url,
+          duration: content.duration,
+          mimeType: content.mimeType
+        };
+      }
+      else if (type === 'location') {
+        messageContent = {
+          latitude: content.latitude,
+          longitude: content.longitude,
+          url: content.url
+        };
+      }
+      
       const newMessage = new Message({
         sender,
         receiver,
         type,
-        content,
+        content: messageContent,
         read: false,
-        createdAt: timestamp || new Date()
+        createdAt: timestamp 
       });
       
       await newMessage.save();
@@ -142,9 +164,9 @@ socketServer.on("connection", (socket) => {
         error: error.message 
       });
     }
-  });
+});
   socket.on("typing", ({ sender, receiver }) => {
-    if (users[receiver]) {
+    if (users[receiver]) { 
       socket.to(users[receiver]).emit("typing-server", sender);
     }
   });

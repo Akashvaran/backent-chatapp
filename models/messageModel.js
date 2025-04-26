@@ -8,7 +8,8 @@ const fileSchema = new mongoose.Schema({
   mimeType: String,
   duration: Number, 
   latitude: Number,   
-  longitude: Number
+  longitude: Number,
+  url: String 
 }, { _id: false });
 
 const messageSchema = new mongoose.Schema(
@@ -29,7 +30,6 @@ const messageSchema = new mongoose.Schema(
       required: true
     },
     content: fileSchema,
-    
     read: { 
       type: Boolean,
       default: false
@@ -42,5 +42,4 @@ const messageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Message = mongoose.model("ChatMessage", messageSchema);
-module.exports = Message;
+module.exports = mongoose.model("ChatMessage", messageSchema);

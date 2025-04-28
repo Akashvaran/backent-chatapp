@@ -69,16 +69,14 @@ const login = async (req, res, next) => {
 };
 
 
+
 const getAllUsers = async (req, res, next) => {
   try {
-  console.log(req.user.id);
-  
+  console.log("function is running")  
     const userId = req.user.id;
 
     const allUsersWithUnread = await AuthModel.aggregate([
-      {
-        $match: { _id: { $ne: new mongoose.Types.ObjectId(userId) } }
-      },
+     
       {
         $lookup: {
           from: "ChatMessage", 
@@ -132,13 +130,14 @@ const getAllUsers = async (req, res, next) => {
         }
       }
     ]);
-
+    console.log(allUsersWithUnread)
     res.status(200).json(allUsersWithUnread);
   } catch (error) {
     console.error("Error fetching users with unread messages:", error);
     next(error);
   }
 };
+
 
 
 
@@ -158,7 +157,6 @@ const Verify = async (req, res) => {
 
 const logout = async (req, res, next) => {
     try {
-
 
         res.cookie("jwt", "", { maxAge: 1, httpOnly: true });
 

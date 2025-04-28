@@ -79,7 +79,7 @@ const getAllUsers = async (req, res, next) => {
      
       {
         $lookup: {
-          from: "ChatMessage", 
+          from: "chatmessages", 
           let: { senderId: "$_id" },
           pipeline: [
             {

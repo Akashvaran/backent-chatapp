@@ -108,7 +108,7 @@ socketServer.on("connection", (socket) => {
       let messageContent;
       
       if (type === 'text') {
-        messageContent = { text: content };
+        messageContent = { text: typeof content === 'string' ? content : content.text };
       } 
       else if (type === 'audio') {
         messageContent = {

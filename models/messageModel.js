@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 
 const fileSchema = new mongoose.Schema({
-  text: String,            
+  text: String,
+  AudioData:String,       
   fileUrl: String,       
   fileName: String,
   fileSize: Number,

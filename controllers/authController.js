@@ -72,14 +72,14 @@ const login = async (req, res, next) => {
 
 const getAllUsers = async (req, res, next) => {
   try {
-  console.log("function is running")  
+    console.log("function is running");
     const userId = req.user.id;
 
     const allUsersWithUnread = await AuthModel.aggregate([
-     
+
       {
         $lookup: {
-          from: "chatmessages", 
+          from: "chatmessages",
           let: { senderId: "$_id" },
           pipeline: [
             {
@@ -93,21 +93,44 @@ const getAllUsers = async (req, res, next) => {
                 }
               }
             },
-            { $sort: { createdAt: -1 } },
-            {
-              $group: {
-                _id: null,
-                unreadCount: { $sum: 1 },
-                lastMessage: { $first: "$$ROOT" }
-              }
-            }
+            { $count: "unreadCount" }
           ],
           as: "unreadInfo"
         }
       },
       {
+        $lookup: {
+          from: "chatmessages",
+          let: { senderId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$sender", "$$senderId"] },
+                    { $eq: ["$receiver", new mongoose.Types.ObjectId(userId)] }
+                  ]
+                }
+              }
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            {
+              $project: {
+                type: 1,
+                content: 1,
+                createdAt: 1,
+                read: 1
+              }
+            }
+          ],
+          as: "lastMessageInfo"
+        }
+      },
+      {
         $addFields: {
-          unreadInfo: { $arrayElemAt: ["$unreadInfo", 0] }
+          unreadCount: { $ifNull: [{ $arrayElemAt: ["$unreadInfo.unreadCount", 0] }, 0] },
+          lastMessage: { $arrayElemAt: ["$lastMessageInfo", 0] }
         }
       },
       {
@@ -115,14 +138,15 @@ const getAllUsers = async (req, res, next) => {
           _id: 1,
           name: 1,
           email: 1,
-          unreadCount: { $ifNull: ["$unreadInfo.unreadCount", 0] },
+          unreadCount: 1,
           lastMessage: {
             $cond: {
-              if: { $gt: ["$unreadInfo", null] },
+              if: { $gt: [{ $size: "$lastMessageInfo" }, 0] },
               then: {
-                type: "$unreadInfo.lastMessage.type",
-                content: "$unreadInfo.lastMessage.content",
-                createdAt: "$unreadInfo.lastMessage.createdAt"
+                type: "$lastMessage.type",
+                content: "$lastMessage.content",
+                createdAt: "$lastMessage.createdAt",
+                read: "$lastMessage.read"
               },
               else: null
             }
@@ -130,7 +154,8 @@ const getAllUsers = async (req, res, next) => {
         }
       }
     ]);
-    console.log(allUsersWithUnread)
+
+    console.log(allUsersWithUnread);
     res.status(200).json(allUsersWithUnread);
   } catch (error) {
     console.error("Error fetching users with unread messages:", error);

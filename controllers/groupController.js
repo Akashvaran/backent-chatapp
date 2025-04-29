@@ -67,11 +67,10 @@ exports.getUserGroups = async (req, res, next) => {
 };
 
 
-
-
-exports.getGroupMessages = async (req, res, next) => {
+exports.getGroupMessages = async (req, res) => {
   try {
     const { groupId } = req.params;
+    const userId = req.user._id; 
 
     if (!groupId) {
       return res.status(400).json({
@@ -80,14 +79,31 @@ exports.getGroupMessages = async (req, res, next) => {
       });
     }
 
-    const messages = await Message.find({ group: groupId })
+    const messages = await Message.find({
+      group: groupId,
+      isDeletedEvery: { $ne: true }
+    })
       .populate('sender', 'name _id')
       .populate('readBy', 'name _id')
       .sort({ createdAt: -1 });
 
+    const formattedMessages = messages.map(msg => {
+      const deletedFor = [];
+
+      if (msg.isDeletedMe && !msg.readBy.includes(userId)) {
+        deletedFor.push(userId.toString());
+      }
+
+      return {
+        ...msg.toObject(),
+        deletedFor
+      };
+    });
+console.log(formattedMessages);
+
     res.status(200).json({
       status: 'success',
-      messages,
+      messages: formattedMessages
     });
   } catch (err) {
     console.error('Error fetching group messages:', err);
